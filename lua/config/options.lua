@@ -37,3 +37,11 @@ vim.opt.cursorline = true -- highlight current line
 vim.opt.hlsearch = true -- highlight all matches in search
 vim.opt.ignorecase = true -- ignore case in search
 vim.opt.smartcase = true -- match case if explicitly stated
+
+-- UI / floating windows (Neovim 0.11+)
+vim.opt.winborder = "rounded" -- rounded borders on hover, signature help, and other floats
+vim.opt.pumheight = 12 -- limit completion popup height
+vim.opt.splitkeep = "screen" -- keep text position stable when opening/closing splits
+vim.opt.laststatus = 3 -- single global statusline across splits (IntelliJ-like)
+vim.opt.wildmode = "longest:full,full" -- command-line <Tab> completion behavior
+vim.opt.wildoptions = "pum" -- show <Tab> command-line completions in a popup menu

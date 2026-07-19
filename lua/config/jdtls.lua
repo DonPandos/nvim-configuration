@@ -42,10 +42,11 @@ local function get_workspace()
     -- Get the home directory of your operating system
     local home = os.getenv "HOME"
     -- Declare a directory where you would like to store project information
-    local workspace_path = home .. "/.nvim"
+    local workspace_path = home .. "/.nvim/"
     -- Determine the project name
     local project_name = vim.fn.fnamemodify(vim.fn.getcwd(), ":p:h:t")
     -- Create the workspace directory by concatenating the designated workspace path and the project name
+    -- (note the trailing "/" above -- without it workspaces landed in ~/.nvimPROJECT)
     local workspace_dir = workspace_path .. project_name
     return workspace_dir
 end
@@ -93,6 +94,15 @@ local function setup_jdtls()
     -- Get the bundles list with the jars to the debug adapter, and testing adapters
     local bundles = get_bundles()
 
+    -- Add the Spring Boot Tools jdtls extension bundles (from spring-boot.nvim)
+    -- so the Spring language server can read this project's config-property
+    -- metadata for application.yml/.properties completion. Guarded so jdtls
+    -- still works if the plugin isn't installed.
+    local ok_spring_boot, spring_boot = pcall(require, "spring_boot")
+    if ok_spring_boot then
+        vim.list_extend(bundles, spring_boot.java_extensions())
+    end
+
     -- Determine the root directory of the project by looking for these specific markers
     local root_dir = jdtls.setup.find_root({ '.git', 'mvnw', 'gradlew', 'pom.xml', 'build.gradle' });
     
@@ -125,7 +135,7 @@ local function setup_jdtls()
         '-Declipse.product=org.eclipse.jdt.ls.core.product',
         '-Dlog.protocol=true',
         '-Dlog.level=ALL',
-        '-Xmx1g',
+        '-Xmx2G',
         '--add-modules=ALL-SYSTEM',
         '--add-opens', 'java.base/java.util=ALL-UNNAMED',
         '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
@@ -144,10 +154,11 @@ local function setup_jdtls()
             -- Enable code formatting
             format = {
                 enabled = true,
-                -- Use the Google Style guide for code formattingh
+                -- Eclipse formatter profile tuned to match IntelliJ's default Java
+                -- style (see lang_servers/intellij-java-style.xml).
                 settings = {
-                    url = vim.fn.stdpath("config") .. "/lang_servers/intellij-java-google-style.xml",
-                    profile = "GoogleStyle"
+                    url = vim.fn.stdpath("config") .. "/lang_servers/intellij-java-style.xml",
+                    profile = "IntelliJ"
                 }
             },
             -- Enable downloading archives from eclipse automatically
@@ -190,14 +201,10 @@ local function setup_jdtls()
                     "jdk.*",
                     "sun.*",
                 },
-                -- Set the order in which the language server should organize imports
-                importOrder = {
-                    "java",
-                    "jakarta",
-                    "javax",
-                    "com",
-                    "org",
-                }
+                -- IntelliJ's default import layout is a single alphabetical group
+                -- (no per-package grouping), with static imports separated below.
+                -- An empty importOrder = one group, matching that.
+                importOrder = {}
             },
             sources = {
                 -- How many classes from a specific package should be imported before automatic imports combine them all into a single import
@@ -221,7 +228,25 @@ local function setup_jdtls()
             },
              -- If changes to the project will require the developer to update the projects configuration advise the developer before accepting the change
             configuration = {
-                updateBuildConfiguration = "interactive"
+                updateBuildConfiguration = "interactive",
+                -- Register every JDK installed on this machine so jdtls can pick
+                -- the right one per project (like IntelliJ's "Project SDK").
+                -- The `name` must be a valid Java execution environment id.
+                runtimes = {
+                    {
+                        name = "JavaSE-11",
+                        path = os.getenv("HOME") .. "/Library/Java/JavaVirtualMachines/corretto-11.0.26/Contents/Home",
+                    },
+                    {
+                        name = "JavaSE-17",
+                        path = os.getenv("HOME") .. "/Library/Java/JavaVirtualMachines/graalvm-ce-17.0.9/Contents/Home",
+                    },
+                    {
+                        name = "JavaSE-21",
+                        path = os.getenv("HOME") .. "/Library/Java/JavaVirtualMachines/corretto-21.0.6/Contents/Home",
+                        default = true,
+                    },
+                },
             },
             -- enable code lens in the lsp
             referencesCodeLens = {
