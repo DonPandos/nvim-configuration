@@ -11,11 +11,17 @@ return {
 
         dapui.setup()
 
-        -- Breakpoint / stopped-line signs (IntelliJ-style markers)
-        vim.fn.sign_define("DapBreakpoint", { text = "", texthl = "DiagnosticError", numhl = "" })
-        vim.fn.sign_define("DapBreakpointCondition", { text = "", texthl = "DiagnosticWarn", numhl = "" })
-        vim.fn.sign_define("DapLogPoint", { text = "", texthl = "DiagnosticInfo", numhl = "" })
-        vim.fn.sign_define("DapStopped", { text = "", texthl = "DiagnosticWarn", linehl = "Visual", numhl = "" })
+        -- Breakpoint / stopped-line signs. Use plain Unicode (●, ◆, ▶) instead
+        -- of Nerd-Font glyphs so they render in ANY font, with explicit bright
+        -- colors so they show even on terminals that mangle the theme.
+        vim.api.nvim_set_hl(0, "DapBreakpoint", { fg = "#e51400" })
+        vim.api.nvim_set_hl(0, "DapBreakpointCondition", { fg = "#f79000" })
+        vim.api.nvim_set_hl(0, "DapLogPoint", { fg = "#61afef" })
+        vim.api.nvim_set_hl(0, "DapStopped", { fg = "#98c379" })
+        vim.fn.sign_define("DapBreakpoint", { text = "●", texthl = "DapBreakpoint", numhl = "" })
+        vim.fn.sign_define("DapBreakpointCondition", { text = "◆", texthl = "DapBreakpointCondition", numhl = "" })
+        vim.fn.sign_define("DapLogPoint", { text = "◆", texthl = "DapLogPoint", numhl = "" })
+        vim.fn.sign_define("DapStopped", { text = "▶", texthl = "DapStopped", linehl = "Visual", numhl = "" })
 
         -- Auto-open the UI when a session starts, auto-close when it ends.
         dap.listeners.before.attach.dapui_config = function() dapui.open() end
