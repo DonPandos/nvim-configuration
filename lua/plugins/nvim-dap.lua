@@ -47,27 +47,74 @@ return {
         map("<leader>dO", dap.step_out, "[D]ebug Step [O]ut (up)")
         map("<leader>dl", dap.run_last, "[D]ebug Run [L]ast")
 
+        -- Run a launch config WITHOUT the debugger -- the equivalent of VSCode's
+        -- "Run Without Debugging" (Ctrl+F5). nvim-dap sends the whole config
+        -- table as the DAP `launch` request body, so setting `noDebug = true`
+        -- tells the adapter to start the program but skip breakpoints/stepping.
+        -- Pulls choices from .vscode/launch.json (auto-read) plus any configs
+        -- registered for the current filetype (e.g. jdtls's main-class configs).
+        local function run_without_debug()
+            local ft = vim.bo.filetype
+            local configs = {}
+            vim.list_extend(configs, dap.configurations[ft] or {})
+            local ok, launch = pcall(function()
+                return require("dap.ext.vscode").getconfigs()
+            end)
+            if ok and launch then
+                vim.list_extend(configs, launch)
+            end
+            if #configs == 0 then
+                vim.notify("No launch configurations found for '" .. ft .. "'", vim.log.levels.WARN)
+                return
+            end
+            require("dap.ui").pick_one(
+                configs,
+                "Run WITHOUT debugging: ",
+                function(c) return string.format("%s (%s)", c.name, c.type) end,
+                function(choice)
+                    if not choice then return end
+                    local cfg = vim.deepcopy(choice)
+                    cfg.noDebug = true -- <- the "just run it" switch
+                    dap.run(cfg)
+                end
+            )
+        end
+        map("<leader>dR", run_without_debug, "[D]ebug [R]un (no debugger / Ctrl+F5)")
+
         -- UI: toggle the debug windows back open/closed (fixes "can't reopen")
         map("<leader>du", dapui.toggle, "[D]ebug Toggle [U]I")
         map("<leader>de", function() dapui.eval(nil, { enter = true }) end, "[D]ebug [E]valuate")
         map("<leader>dr", dap.repl.toggle, "[D]ebug [R]EPL")
 
-        -- Stop: terminate the debuggee (shuts the application down) and close UI
-        map("<leader>dx", function()
-            dap.terminate()
+        -- Stop: terminate the debuggee (shuts the application down), then close
+        -- the session/UI ONLY in the callback -- i.e. after the terminate request
+        -- has actually been sent. Calling dap.close() immediately (as before)
+        -- raced the async terminate and orphaned the running app.
+        local function stop_debug()
+            if not dap.session() then
+                dapui.close()
+                return
+            end
+            dap.terminate(nil, { terminateDebuggee = true }, function()
+                dap.close()
+                dapui.close()
+            end)
+        end
+        map("<leader>dx", stop_debug, "[D]ebug Stop / Terminate (shutdown app)")
+
+        -- Hard kill: if a session is wedged and terminate won't take, force a
+        -- disconnect that also kills the debuggee.
+        map("<leader>dX", function()
+            dap.disconnect({ terminateDebuggee = true })
             dap.close()
             dapui.close()
-        end, "[D]ebug Stop / Terminate (shutdown app)")
+        end, "[D]ebug Force Kill (disconnect)")
 
         -- Familiar function keys (VSCode-style)
         map("<F5>", dap.continue, "Debug: Continue")
         map("<F10>", dap.step_over, "Debug: Step Over")
         map("<F11>", dap.step_into, "Debug: Step Into")
         map("<S-F11>", dap.step_out, "Debug: Step Out")
-        map("<S-F5>", function()
-            dap.terminate()
-            dap.close()
-            dapui.close()
-        end, "Debug: Stop")
+        map("<S-F5>", stop_debug, "Debug: Stop")
     end
 }

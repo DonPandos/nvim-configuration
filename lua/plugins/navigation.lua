@@ -27,9 +27,43 @@ return {
             backends = { "lsp", "treesitter", "markdown" },
             layout = { default_direction = "right", min_width = 30 },
             show_guides = true,
+            -- THE fix for "outline shows only class names, no methods":
+            -- a Spring Boot project attaches TWO LSP servers to each Java file --
+            -- jdtls (the real class structure) AND the Spring Boot language
+            -- server (application.yml/.properties completion). BOTH advertise
+            -- textDocument/documentSymbol, but the Spring server answers with a
+            -- near-empty stub (2 symbols, no methods). Aerial queries only ONE
+            -- server, chosen by lsp.priority (default 10, first match wins), and
+            -- it was landing on "spring-boot". Priority -1 means "never use this
+            -- client for symbols", so aerial falls through to jdtls -> full tree.
+            -- (Diagnosed live: get_client was returning spring-boot; excluding it
+            -- makes jdtls the provider. See aerial util.lua get_client.)
+            lsp = {
+                priority = {
+                    ["spring-boot"] = -1,
+                },
+            },
+            -- Show EVERY symbol kind (fields/variables too), not just the default
+            -- Class/Method/... set -- the full IntelliJ "Structure" view.
+            filter_kind = false,
         },
         keys = {
-            { "<leader>o", "<cmd>AerialToggle!<cr>", desc = "Structure (Aerial)" },
+            -- Open the outline and force a fresh fetch from jdtls. On a cold
+            -- start aerial may attach before jdtls has finished indexing and
+            -- cache a partial reply; refetching on open (now that it targets
+            -- jdtls, not the Spring stub) guarantees the complete structure.
+            {
+                "<leader>o",
+                function()
+                    local aerial = require("aerial")
+                    local src = vim.api.nvim_get_current_buf()
+                    aerial.toggle()
+                    vim.schedule(function()
+                        pcall(aerial.refetch_symbols, src)
+                    end)
+                end,
+                desc = "Structure (Aerial)",
+            },
         },
     },
 
