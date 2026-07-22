@@ -9,6 +9,14 @@ return {
         require("nvim-tree").setup({
             hijack_netrw = true,
             auto_reload_on_write = true,
+            view = {
+                -- Fixed width the tree always returns to. Change this number
+                -- to your preferred width.
+                width = 35,
+                -- Don't run `:wincmd =` when a file opens, so opening a file
+                -- no longer resets the tree width / re-equalizes your splits.
+                preserve_window_proportions = true,
+            },
             -- Make the live filter (`f`) show its prefix
             live_filter = {
                 prefix = "[FILTER]: ",
@@ -49,6 +57,33 @@ return {
                         api.node.navigate.parent_close() -- close parent, jump to it
                     end
                 end, opts("Close folder / parent"))
+            end,
+        })
+
+        -- Persist manual tree resizes.
+        -- nvim-tree only remembers a width that was set through its own
+        -- resize() (view.lua sets view_state.Active.width only when given a
+        -- size). A hand-drag changes the window but NOT that tracked width, so
+        -- the next file-open calls M.resize() and snaps the tree back to
+        -- view.width. This records the dragged width back into nvim-tree via
+        -- api.tree.resize({ width }) (which persists it), so opening a file
+        -- keeps whatever width you dragged to.
+        local persisting = false
+        vim.api.nvim_create_autocmd("WinResized", {
+            group = vim.api.nvim_create_augroup("NvimTreePersistWidth", { clear = true }),
+            callback = function()
+                if persisting then return end
+                local api = require("nvim-tree.api")
+                local winid = api.tree.winid()
+                if not winid or not vim.api.nvim_win_is_valid(winid) then return end
+                -- only act when the tree window itself was the one resized
+                if not vim.tbl_contains(vim.v.event.windows or {}, winid) then return end
+                persisting = true
+                local ok = pcall(function()
+                    api.tree.resize({ width = vim.api.nvim_win_get_width(winid) })
+                end)
+                persisting = false
+                if not ok then return end
             end,
         })
     end
