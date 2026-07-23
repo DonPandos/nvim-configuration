@@ -17,6 +17,17 @@ return {
                 -- no longer resets the tree width / re-equalizes your splits.
                 preserve_window_proportions = true,
             },
+            -- IntelliJ-style git status: no git glyphs in the tree, instead the
+            -- file NAME is tinted by its git state (green=added, blue=modified,
+            -- ...). Colors are defined below via the NvimTreeGitFile*HL groups.
+            renderer = {
+                highlight_git = "name", -- tint the filename, not an icon column
+                icons = {
+                    show = {
+                        git = false,    -- drop the git status glyphs entirely
+                    },
+                },
+            },
             -- Make the live filter (`f`) show its prefix
             live_filter = {
                 prefix = "[FILTER]: ",
@@ -58,6 +69,34 @@ return {
                     end
                 end, opts("Close folder / parent"))
             end,
+        })
+
+        -- IntelliJ-like colors for the git-tinted file names (see renderer.
+        -- highlight_git above). These NvimTreeGitFile*HL groups are what
+        -- nvim-tree applies to a name based on its git status; the folder
+        -- variants link to these, so changed folders get tinted too.
+        -- Re-applied on :colorscheme change so it always sticks (same pattern
+        -- as lua/plugins/colorscheme.lua).
+        local function set_git_name_colors()
+            local hl = vim.api.nvim_set_hl
+            -- added / staged to VCS (`A `) -> green
+            hl(0, "NvimTreeGitFileStagedHL", { fg = "#59a869" })
+            -- NOT tracked yet: untracked (`??`) / intent-to-add (` A`) -> red
+            hl(0, "NvimTreeGitFileNewHL", { fg = "#c75450" })
+            -- modified (` M`, `MM`) and renamed -> blue
+            hl(0, "NvimTreeGitFileDirtyHL", { fg = "#6897bb" })
+            hl(0, "NvimTreeGitFileRenamedHL", { fg = "#6897bb" })
+            -- deleted -> gray + strikethrough (IntelliJ style)
+            hl(0, "NvimTreeGitFileDeletedHL", { fg = "#6c6c6c", strikethrough = true })
+            -- unmerged / conflict -> red
+            hl(0, "NvimTreeGitFileMergeHL", { fg = "#c75450" })
+            -- ignored -> dim
+            hl(0, "NvimTreeGitFileIgnoredHL", { fg = "#545454" })
+        end
+        set_git_name_colors()
+        vim.api.nvim_create_autocmd("ColorScheme", {
+            group = vim.api.nvim_create_augroup("NvimTreeGitNameColors", { clear = true }),
+            callback = set_git_name_colors,
         })
 
         -- Persist manual tree resizes.

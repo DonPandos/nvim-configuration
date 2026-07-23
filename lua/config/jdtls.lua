@@ -201,16 +201,29 @@ local function setup_jdtls()
                     "jdk.*",
                     "sun.*",
                 },
-                -- IntelliJ's default import layout is a single alphabetical group
-                -- (no per-package grouping), with static imports separated below.
-                -- An empty importOrder = one group, matching that.
-                importOrder = {}
+                -- IntelliJ's default import layout: normal imports in ONE
+                -- alphabetical group, then static imports in their own group at
+                -- the BOTTOM. jdtls reads this order top->bottom; "" is the
+                -- catch-all for normal imports and "#" is the catch-all for
+                -- static imports (jdtls marks static groups with '#'). So
+                -- { "", "#" } = normal on top, all static at the end.
+                -- (Eclipse's own default is { "#", ... } => static on top.)
+                importOrder = { "", "#" }
             },
             sources = {
-                -- How many classes from a specific package should be imported before automatic imports combine them all into a single import
+                -- How many imports from ONE package before organize-imports (on
+                -- save, and <leader>Jo) collapses them into a single `.*` import.
+                -- 4 => "more than 3 from the same package" turns into a wildcard.
+                -- Same meaning as IntelliJ's "Class count to use import with '*'".
+                -- (Set higher, e.g. 9999, to always keep single-class imports.)
                 organizeImports = {
-                    starThreshold = 9999,
-                    staticThreshold = 9999
+                    starThreshold = 4,
+                    -- Static imports kept as-is (not collapsed). NOTE: the real
+                    -- jdtls key is `staticStarThreshold` -- the old
+                    -- `staticThreshold` here was a typo and silently ignored.
+                    -- Lower this (IntelliJ's static default is 3) if you also
+                    -- want `import static Foo.a/b/c` to become `Foo.*`.
+                    staticStarThreshold = 9999
                 }
             },
             -- How should different pieces of code be generated?
