@@ -26,6 +26,7 @@ return {
             { "<leader>J", group = "[J]ava" },
             { "<leader>n", group = "[N]oice" },
             { "<leader>q", group = "Session (persistence)" },
+            { "<leader>t", group = "[T]erminal" },
             { "<leader>w", group = "[W]indow" },
             { "<leader>x", group = "Diagnostics/Trouble" },
         })
