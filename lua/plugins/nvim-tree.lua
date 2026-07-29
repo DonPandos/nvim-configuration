@@ -9,6 +9,14 @@ return {
         require("nvim-tree").setup({
             hijack_netrw = true,
             auto_reload_on_write = true,
+            -- Git status runs `git status` (and, when showing ignored files,
+            -- `git status --ignored`, which enumerates every file under a big
+            -- Maven `target/`). The default 400ms is too tight for large repos:
+            -- after 5 timeouts nvim-tree DISABLES git integration for the whole
+            -- session (killing the name colors above too). Give it 5s.
+            git = {
+                timeout = 5000,
+            },
             view = {
                 -- Fixed width the tree always returns to. Change this number
                 -- to your preferred width.
