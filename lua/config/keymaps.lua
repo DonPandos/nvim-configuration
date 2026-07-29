@@ -18,8 +18,39 @@ vim.keymap.set("t", "<Esc><Esc>", "<C-\\><C-n>", { desc = "Exit terminal mode" }
 -- Better window navigation
 vim.keymap.set("n", "<C-h>", "<C-w><C-h>", { desc = "Move focus to the left window" })
 vim.keymap.set("n", "<C-l>", "<C-w><C-l>", { desc = "Move focus to the right window" })
-vim.keymap.set("n", "<C-j>", "<C-w><C-j>", { desc = "Move focus to the lower window" })
-vim.keymap.set("n", "<C-k>", "<C-w><C-k>", { desc = "Move focus to the upper window" })
+
+-- Preview-aware <C-j>/<C-k>: when a goto-preview float is open (it opens
+-- unfocused), these scroll IT without leaving your code; otherwise they move
+-- window focus down/up as before. The float is located by the window var
+-- goto-preview tags it with, so this needs no plugin require and costs a cheap
+-- window scan only. Scrolling the float moves the float's cursor, not the main
+-- one, so it never trips goto-preview's dismiss-on-move (bound to the main buf).
+local function goto_preview_win()
+	for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+		local ok, v = pcall(vim.api.nvim_win_get_var, w, "is-goto-preview-window")
+		if ok and v == 1 and vim.api.nvim_win_is_valid(w) then
+			return w
+		end
+	end
+end
+
+-- scroll_keys is fed to `normal!` inside the float: "3\5" = 3x<C-e> (down),
+-- "3\25" = 3x<C-y> (up). Falls back to `wincmd j/k` when no preview is open.
+local function preview_scroll_or_focus(scroll_keys, wincmd)
+	return function()
+		local w = goto_preview_win()
+		if w then
+			vim.api.nvim_win_call(w, function()
+				vim.cmd("normal! " .. scroll_keys)
+			end)
+		else
+			vim.cmd("wincmd " .. wincmd)
+		end
+	end
+end
+
+vim.keymap.set("n", "<C-j>", preview_scroll_or_focus("3\5", "j"), { desc = "Scroll preview down / focus lower window" })
+vim.keymap.set("n", "<C-k>", preview_scroll_or_focus("3\25", "k"), { desc = "Scroll preview up / focus upper window" })
 
 -- Easily split windows
 vim.keymap.set("n", "<leader>wv", ":vsplit<cr>", { desc = "[W]indow Split [V]ertical" })
