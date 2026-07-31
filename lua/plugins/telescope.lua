@@ -54,12 +54,26 @@ return {
 
             telescope.setup({
                 defaults = {
-                    -- Show the FILENAME first (always visible), then the directory
-                    -- path dimmed after it -- instead of a long left-truncated path.
-                    -- Matters in a multi-module repo: two `OrderService.java` in
-                    -- different modules stay distinguishable. Applies to every
-                    -- picker (find_files, live_grep, references, ...).
-                    path_display = { "filename_first" },
+                    -- Show the FILENAME first (always visible), then the parent
+                    -- directory after it -- instead of a long path that pushes the
+                    -- class name off the right edge. Matters in a multi-module repo:
+                    -- two `OrderService.java` in different modules stay distinct.
+                    --
+                    -- NOTE: telescope 0.1.8 has no built-in "filename_first" (added
+                    -- upstream after this tag), so we replicate it with a function.
+                    -- find_files' row keeps only the string here (make_entry.lua),
+                    -- so the dir can't be dimmed on 0.1.8 -- unpin telescope for the
+                    -- native, dimmed filename_first. Applies to find_files, buffers,
+                    -- oldfiles and the LSP location pickers (live_grep/grep_string
+                    -- use their own entry_maker below, so they're unaffected).
+                    path_display = function(_, path)
+                        local tail = require("telescope.utils").path_tail(path)
+                        local dir = vim.fn.fnamemodify(path, ":h")
+                        if dir == "." or dir == "" then
+                            return tail
+                        end
+                        return string.format("%s  %s", tail, dir)
+                    end,
                     -- keymappings to navigate inside the telescope prompt
                     mappings = {
                         i = {
